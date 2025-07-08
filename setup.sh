@@ -67,48 +67,33 @@ NS_NAME="ipv6-mtu-testnet"
 NSROUTER_NAME="${NS_NAME}-router"
 NSCLIENT_NAME="${NS_NAME}-client"
 
-etcdir="/tmp/$NS_NAME"
-mkdir -p "$etcdir/alternatives"
-mkdir -p "$etcdir/ssl/certs"
-cp /etc/nsswitch.conf "$etcdir/nsswitch.conf"
-cp /etc/ssl/openssl.cnf "$etcdir/ssl/openssl.cnf"
+NSETCDIR="/tmp/$NS_NAME"
+mkdir -p "$NSETCDIR/alternatives"
+mkdir -p "$NSETCDIR/ssl/certs"
+cp /etc/nsswitch.conf "$NSETCDIR/nsswitch.conf"
+cp /etc/ssl/openssl.cnf "$NSETCDIR/ssl/openssl.cnf"
 
-echo "nameserver 2001:678:e68:f000::" > "$etcdir/resolv.conf"
-#echo "nameserver 2001:678:ed0:f000::" > "$etcdir/resolv.conf"
-#echo "nameserver 2a01:4f8:251:554::2" > "$etcdir/resolv.conf"
+echo "nameserver 2001:678:e68:f000::" > "$NSETCDIR/resolv.conf"
+#echo "nameserver 2001:678:ed0:f000::" > "$NSETCDIR/resolv.conf"
+#echo "nameserver 2a01:4f8:251:554::2" > "$NSETCDIR/resolv.conf"
 
-cat <<EOF > "$etcdir/hosts"
+cat <<EOF > "$NSETCDIR/hosts"
 2620:1ec:29:1::45 code.visualstudio.com
 EOF
 
-cat <<EOF > "$etcdir/passwd"
+cat <<EOF > "$NSETCDIR/passwd"
 root:x:0:0:root:/root:/bin/bash
 tcpdump:x:117:127::/nonexistent:/usr/sbin/nologin
 EOF
 
-#echo "root:x:0:0:root:/root:/bin/bash" > "$etcdir/passwd"
-
-
-#NSROUTER_UNSHARE="unshare --mount-proc -Urm"
-#NSROUTER_UNSHARE="unshare --mount-proc -Urm bash -c \"mount --bind $tmpdir /etc; \$0\""
-NS_UNSHARE="bwrap --dev-bind / / --ro-bind $etcdir /etc/ --ro-bind /etc/alternatives /etc/alternatives --ro-bind /etc/ssl/certs/ /etc/ssl/certs/"
+NS_UNSHARE="bwrap --dev-bind / / --ro-bind $NSETCDIR /etc/ --ro-bind /etc/alternatives /etc/alternatives --ro-bind /etc/ssl/certs/ /etc/ssl/certs/"
 
 NSROUTER="ip netns exec ${NSROUTER_NAME} ${NS_UNSHARE}"
 NSCLIENT="ip netns exec ${NSCLIENT_NAME} ${NS_UNSHARE}"
 
 ROUTER_WAN_BRIDGE="br0"
-#MTU_CAP="1480"
-MTUS="1500 1492 1480 1350 1280"
-#MTU_CAP="1490"
-#MTU_CAP="1492"
-#MTU_CAP="1500"
 
-#prv_mnt() {
-#	unshare --mount-proc -Urm bash <<END
-#	mount --bind $tmpdir /etc
-#	lmutil    # REPLACE WITH YOUR COMMAND
-#END
-#}
+MTUS="1500 1492 1491 1490 1489 1488 1486 1480 1460 1440 1420 1400 1350 1280"
 
 dec2hex() {
 	printf "%x\n" "$1"
@@ -165,8 +150,6 @@ setup_client() {
 	ip link set dev veth-client-tx netns "${NSCLIENT_NAME}-${mtu}${mssfixed}" address 02:00:00:00:01:02 up
 	ip link set dev veth-router-tx netns "${NSROUTER_NAME}-${mtu}${mssfixed}" address 02:00:00:00:02:01 mtu $mtu up
 	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}-${mtu}${mssfixed}" address 02:00:00:00:02:02 mtu $mtu up
-#	ip link set dev vrtr-tx netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 up
-#	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}" address 02:00:00:00:02:02 up
 
 	$(nsrouter "${mtu}${mssfixed}") ip -6 route add fd00::${ihb}$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev veth-router-tx
 
@@ -260,8 +243,6 @@ test_url_call() {
 	# --header="Sec-Fetch-Site: none"...
 	bytes="$($(nsclient "$mtu") timeout 60 wget --header="Sec-Fetch-Site: none" --user-agent="$agent" -q -6 "$url" --timeout=10 -O - | wc -c)"
 	ret="$?"
-#	echo "~~ ret: $ret, bytes: $bytes"
-#
 
 	if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
 		return 0
@@ -305,7 +286,6 @@ test_url_run() {
 	local i
 	local agent="Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
-#	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
 
 	test_run_print_retried "$url" "$mtu" "0.5 5 15" \
@@ -357,7 +337,7 @@ test() {
 
 	export MTUS
 	export NSCLIENT_NAME
-	export etcdir
+	export NSETCDIR
 	export NS_UNSHARE
 	export -f nsclient
 	export -f print_green
