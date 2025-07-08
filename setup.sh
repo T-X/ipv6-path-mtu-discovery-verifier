@@ -213,6 +213,7 @@ teardown() {
 test_url_run() {
 	local url="$1"
 	local mtu
+	local ret
 	local agent="Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
 #	echo "-- $@ ~~~";
