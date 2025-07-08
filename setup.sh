@@ -210,8 +210,32 @@ teardown() {
 
 }
 
+test_url() {
+	local mtu
+
+#	echo "-- $url";
+	printf "%-40s" "$url:"
+
+	for mtu in $MTUS; do
+		sleep 0.5
+
+		bytes="$($(nsclient "$mtu") wget -q -6 "$url" --timeout=10 -O - | wc -c)"
+		ret="$?"
+#	echo "~~ ret: $ret, bytes: $bytes"
+#
+
+		if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
+			printf "\033[32m%-7s\033[0m" "✔"
+		else
+			printf "\033[31m%-7s\033[0m" "✗"
+		fi
+	done
+	echo
+}
+
 test() {
 	local mtu
+	local url
 
 	echo "### IPv6 MTU Path Discovery Tester ###"
 	echo
@@ -224,24 +248,7 @@ test() {
 	echo
 
 	for url in $URLS; do
-#		echo "-- $url";
-		printf "%-40s" "$url:"
-
-		for mtu in $MTUS; do
-			sleep 0.5
-
-			bytes="$($(nsclient "$mtu") wget -q -6 "$url" --timeout=10 -O - | wc -c)"
-			ret="$?"
-#		echo "~~ ret: $ret, bytes: $bytes"
-#
-
-			if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
-				printf "\033[32m%-7s\033[0m" "✔"
-			else
-				printf "\033[31m%-7s\033[0m" "✗"
-			fi
-		done
-		echo
+		test_url "$url"
 	done
 }
 
