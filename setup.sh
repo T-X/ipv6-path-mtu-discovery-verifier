@@ -132,39 +132,50 @@ nsrouter() {
 
 setup_router() {
 	local mtu="$1"
+	local mssfixed="$2"
+	local ehb="00"
 
-	ip netns add "${NSROUTER_NAME}-$mtu"
+	[ -n "$mssfixed" ] && ehb="01"
 
-	ip link add vmtu-test-$mtu type veth peer name veth-router-wan
+	ip netns add "${NSROUTER_NAME}-${mtu}${mssfixed}"
 
-	ip link set dev vmtu-test-$mtu master "${ROUTER_WAN_BRIDGE}" address 02:00:00:00:00:00 up
-	ip link set dev veth-router-wan netns "${NSROUTER_NAME}-$mtu" address 02:00:00:$(dec22hex "$mtu"):01 up
+	ip link add vmtu-test-${mtu}${mssfixed} type veth peer name veth-router-wan
 
-	$(nsrouter "$mtu") ip6tables -t nat -A POSTROUTING -o veth-router-wan -j MASQUERADE
-	$(nsrouter "$mtu") sh -c "echo 2 > /proc/sys/net/ipv6/conf/veth-router-wan/accept_ra"
-	$(nsrouter "$mtu") sh -c "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
+	ip link set dev vmtu-test-${mtu}${mssfixed} master "${ROUTER_WAN_BRIDGE}" address 02:00:00:00:00:00 up
+	ip link set dev veth-router-wan netns "${NSROUTER_NAME}-${mtu}${mssfixed}" address 02:00:${ehb}:$(dec22hex "$mtu"):01 up
+
+	$(nsrouter "${mtu}${mssfixed}") ip6tables -t nat -A POSTROUTING -o veth-router-wan -j MASQUERADE
+	$(nsrouter "${mtu}${mssfixed}") sh -c "echo 2 > /proc/sys/net/ipv6/conf/veth-router-wan/accept_ra"
+	$(nsrouter "${mtu}${mssfixed}") sh -c "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
 }
 
 setup_client() {
 	local mtu="$1"
+	local mssfixed="$2"
+	local ihb=""
 
-	ip netns add "${NSCLIENT_NAME}-$mtu"
+	[ -n "$mssfixed" ] && ihb="1:"
+
+	ip netns add "${NSCLIENT_NAME}-${mtu}${mssfixed}"
 
 	ip link add veth-router-tx type veth peer name veth-client-rx
 	ip link add veth-router-rx type veth peer name veth-client-tx
 
-	ip link set dev veth-router-rx netns "${NSROUTER_NAME}-$mtu" address 02:00:00:00:01:01 up
-	ip link set dev veth-client-tx netns "${NSCLIENT_NAME}-$mtu" address 02:00:00:00:01:02 up
-	ip link set dev veth-router-tx netns "${NSROUTER_NAME}-$mtu" address 02:00:00:00:02:01 mtu $mtu up
-	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}-$mtu" address 02:00:00:00:02:02 mtu $mtu up
+	ip link set dev veth-router-rx netns "${NSROUTER_NAME}-${mtu}${mssfixed}" address 02:00:00:00:01:01 up
+	ip link set dev veth-client-tx netns "${NSCLIENT_NAME}-${mtu}${mssfixed}" address 02:00:00:00:01:02 up
+	ip link set dev veth-router-tx netns "${NSROUTER_NAME}-${mtu}${mssfixed}" address 02:00:00:00:02:01 mtu $mtu up
+	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}-${mtu}${mssfixed}" address 02:00:00:00:02:02 mtu $mtu up
 #	ip link set dev vrtr-tx netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 up
 #	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}" address 02:00:00:00:02:02 up
 
-	$(nsrouter "$mtu") ip -6 route add fd00::$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev veth-router-tx
+	$(nsrouter "${mtu}${mssfixed}") ip -6 route add fd00::${ihb}$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev veth-router-tx
 
-	$(nsclient "$mtu") ip -6 link set up dev lo
-	$(nsclient "$mtu") ip -6 address add fd00::$(dec2hex "$mtu"):2/128 dev lo
-	$(nsclient "$mtu") ip -6 route add default via fe80::ff:fe00:101 dev veth-client-tx
+	$(nsclient "${mtu}${mssfixed}") ip -6 link set up dev lo
+	$(nsclient "${mtu}${mssfixed}") ip -6 address add fd00::${ihb}$(dec2hex "$mtu"):2/128 dev lo
+	$(nsclient "${mtu}${mssfixed}") ip -6 route add default via fe80::ff:fe00:101 dev veth-client-tx
+
+	[ -n "$mssfixed" ] && \
+		$(nsclient "${mtu}${mssfixed}") ip6tables -I OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $(($mtu - 60))
 }
 
 setup() {
@@ -172,39 +183,51 @@ setup() {
 
 	for mtu in $MTUS; do
 		setup_router "$mtu"
+		setup_router "$mtu" "m"
 		setup_client "$mtu"
+		setup_client "$mtu" "m"
 	done
 }
 
 teardown_client() {
 	local mtu="$1"
+	local mssfixed="$2"
+	local ihb=""
 
-	$(nsclient "$mtu") ip -6 route del default via fe80::ff:fe00:101 dev veth-client-tx
-	$(nsclient "$mtu") ip -6 address del fd00::$(dec2hex "$mtu"):2/128 dev lo
-	$(nsclient "$mtu") ip -6 link set down dev lo
+	[ -n "$mssfixed" ] && ihb="1:" && \
+		$(nsclient "${mtu}${mssfixed}") ip6tables -D OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $(($mtu - 60))
 
-	$(nsrouter "$mtu") ip -6 route del fd00::$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev veth-router-tx
+	$(nsclient "${mtu}${mssfixed}") ip -6 route del default via fe80::ff:fe00:101 dev veth-client-tx
+	$(nsclient "${mtu}${mssfixed}") ip -6 address del fd00::${ihb}$(dec2hex "$mtu"):2/128 dev lo
+	$(nsclient "${mtu}${mssfixed}") ip -6 link set down dev lo
 
-	$(nsclient "$mtu") ip link del veth-client-tx
-	$(nsclient "$mtu") ip link del veth-client-rx
+	$(nsrouter "${mtu}${mssfixed}") ip -6 route del fd00::${ihb}$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev veth-router-tx
 
-	ip netns del "${NSCLIENT_NAME}-$mtu"
+	$(nsclient "${mtu}${mssfixed}") ip link del veth-client-tx
+	$(nsclient "${mtu}${mssfixed}") ip link del veth-client-rx
+
+	ip netns del "${NSCLIENT_NAME}-${mtu}${mssfixed}"
 }
 
 teardown_router() {
-	$(nsrouter "$mtu") echo 0 > /proc/sys/net/ipv6/conf/all/forwarding
-	$(nsrouter "$mtu") ip6tables -t nat -D POSTROUTING -o veth-router-wan -j MASQUERADE
+	local mtu="$1"
+	local mssfixed="$2"
 
-	$(nsrouter "$mtu") ip link del veth-router-wan
+	$(nsrouter "${mtu}${mssfixed}") echo 0 > /proc/sys/net/ipv6/conf/all/forwarding
+	$(nsrouter "${mtu}${mssfixed}") ip6tables -t nat -D POSTROUTING -o veth-router-wan -j MASQUERADE
 
-	ip netns del "${NSROUTER_NAME}-$mtu"
+	$(nsrouter "${mtu}${mssfixed}") ip link del veth-router-wan
+
+	ip netns del "${NSROUTER_NAME}-${mtu}${mssfixed}"
 }
 
 teardown() {
 	local mtu
 
 	for mtu in $MTUS; do
+		teardown_client "$mtu" "m"
 		teardown_client "$mtu"
+		teardown_router "$mtu" "m"
 		teardown_router "$mtu"
 	done
 
