@@ -316,8 +316,14 @@ test_url_run() {
 	for mtu in $MTUS; do
 		test_run_print_retried "$url" "$mtu" "0.5 5 15" \
 			'test_url_call "$url" "$mtu" "$i"' \
-			'print_green "✔" "7"' \
-			'print_red "✗" "7"'
+			'print_green "✔" "3"' \
+			'print_red "✗" "3"'
+
+		mtu="${mtu}m"
+		test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+			'test_url_call "$url" "$mtu" "$i"' \
+			'print_green "(✔)" "6"' \
+			'print_red "(✗)" "6"'
 	done
 	echo
 }
