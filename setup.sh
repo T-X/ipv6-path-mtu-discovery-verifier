@@ -222,35 +222,66 @@ print_red() {
 	printf "\033[31m%-${2}s\033[0m" "$1"
 }
 
+test_url_call() {
+	local url="$1"
+	local mtu="$2"
+	local sleeplen="$3"
+	local bytes
+	local ret
+
+	sleep "$sleeplen"
+
+	# Set non-wget user agent to have sites like akamai.com and
+	# fcc.gov to respond to us...
+	# But with a real Firefox agent then Facebook wants us to set
+	# --header="Sec-Fetch-Site: none"...
+	bytes="$($(nsclient "$mtu") timeout 60 wget --header="Sec-Fetch-Site: none" --user-agent="$agent" -q -6 "$url" --timeout=10 -O - | wc -c)"
+	ret="$?"
+#	echo "~~ ret: $ret, bytes: $bytes"
+#
+
+	if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 test_url_run() {
 	local url="$1"
 	local mtu
-	local bytes
 	local ret
+	local i
 	local agent="Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
 #	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
 
-	if nmap -6 -oG - -PS -p 443 akamai.com | grep -q "Ports: 443/open/tcp//https///"; then
+	for i in 0.5 5 15; do
+		sleep "$i"
+
+		nmap -6 -oG - -PS -p 443 akamai.com | grep -q "Ports: 443/open/tcp//https///"
+		ret="$?"
+
+		if [ "$ret" -eq 0 ]; then break; fi
+#	if nmap -6 -oG - -PS -p 443 "akamai.com" | grep -q "Ports: 443/open/tcp//https///"; then
+	done
+
+	if [ "$ret" -eq 0 ]; then
 		print_green "✔" "10"
 	else
 		print_red "✗" "10"
 	fi
 
 	for mtu in $MTUS; do
-		sleep 0.5
+		for i in 0.5 5 15; do
+			test_url_call "$url" "$mtu" "$i"
+			ret="$?"
 
-		# Set non-wget user agent to have sites like akamai.com and
-		# fcc.gov to respond to us...
-		# But with a real Firefox agent then Facebook wants us to set
-		# --header="Sec-Fetch-Site: none"...
-		bytes="$($(nsclient "$mtu") timeout 60 wget --header="Sec-Fetch-Site: none" --user-agent="$agent" -q -6 "$url" --timeout=10 -O - | wc -c)"
-		ret="$?"
-#	echo "~~ ret: $ret, bytes: $bytes"
-#
+			if [ "$ret" -eq 0 ]; then break; fi
+		done
 
-		if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
+		if [ "$ret" -eq 0 ]; then
 #			printf "\033[32m%-7s\033[0m" "✔"
 			print_green "✔" "7"
 		else
@@ -295,6 +326,7 @@ test() {
 	export -f nsclient
 	export -f print_green
 	export -f print_red
+	export -f test_url_call
 	export -f test_url_run
 	export -f test_url
 
