@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 URLS="https://www.heise.de/
 https://netzpolitik.org/
@@ -210,10 +210,11 @@ teardown() {
 
 }
 
-test_url() {
+test_url_run() {
+	local url="$1"
 	local mtu
 
-#	echo "-- $url";
+#	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
 
 	for mtu in $MTUS; do
@@ -233,6 +234,19 @@ test_url() {
 	echo
 }
 
+test_url() {
+	local output
+
+	output="$(test_url_run "$@")"
+
+	# print output under lock, to avoid mangling lines
+	# with parallel calls
+	exec 100>/var/tmp/testlock.lock || exit 1
+	flock 100 || exit 1
+
+	stdbuf -oL echo "$output"
+}
+
 test() {
 	local mtu
 	local url
@@ -240,16 +254,21 @@ test() {
 	echo "### IPv6 MTU Path Discovery Tester ###"
 	echo
 
-#	printf "%-40s%-5s%-5s%-5s%-5s%-5s%-5s\n" "URL" "1500" "1492" "1480" "1350" "1280"
 	printf "%-40s" "URL"
 	for mtu in $MTUS; do
 		printf "%-5s" "$mtu"
 	done
 	echo
 
-	for url in $URLS; do
-		test_url "$url"
-	done
+	export MTUS
+	export NSCLIENT_NAME
+	export etcdir
+	export NS_UNSHARE
+	export -f nsclient
+	export -f test_url_run
+	export -f test_url
+
+	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=8 bash -c 'test_url "$@"' _ {}
 }
 
 case "$1" in
