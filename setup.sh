@@ -231,6 +231,12 @@ test_url_run() {
 #	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
 
+	if nmap -6 -oG - -PS -p 443 akamai.com | grep -q "Ports: 443/open/tcp//https///"; then
+		print_green "✔" "10"
+	else
+		print_red "✗" "10"
+	fi
+
 	for mtu in $MTUS; do
 		sleep 0.5
 
@@ -275,6 +281,7 @@ test() {
 	echo
 
 	print_default "URL" "40"
+	print_default "TCP-S+A" "8"
 	for mtu in $MTUS; do
 		printf "%-5s" "$mtu"
 	done
