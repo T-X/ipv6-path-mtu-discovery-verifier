@@ -210,6 +210,18 @@ teardown() {
 
 }
 
+print_default() {
+	printf "%-${2}s" "$1"
+}
+
+print_green() {
+	printf "\033[32m%-${2}s\033[0m" "$1"
+}
+
+print_red() {
+	printf "\033[31m%-${2}s\033[0m" "$1"
+}
+
 test_url_run() {
 	local url="$1"
 	local mtu
@@ -232,9 +244,11 @@ test_url_run() {
 #
 
 		if [ "$ret" -eq 0 -a "$bytes" -gt 1500 ]; then
-			printf "\033[32m%-7s\033[0m" "✔"
+#			printf "\033[32m%-7s\033[0m" "✔"
+			print_green "✔" "7"
 		else
-			printf "\033[31m%-7s\033[0m" "✗"
+#			printf "\033[31m%-7s\033[0m" "✗"
+			print_red "✗" "7"
 		fi
 	done
 	echo
@@ -260,7 +274,7 @@ test() {
 	echo "### IPv6 MTU Path Discovery Tester ###"
 	echo
 
-	printf "%-40s" "URL"
+	print_default "URL" "40"
 	for mtu in $MTUS; do
 		printf "%-5s" "$mtu"
 	done
@@ -271,6 +285,8 @@ test() {
 	export etcdir
 	export NS_UNSHARE
 	export -f nsclient
+	export -f print_green
+	export -f print_red
 	export -f test_url_run
 	export -f test_url
 
