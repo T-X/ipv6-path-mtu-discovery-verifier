@@ -213,6 +213,7 @@ teardown() {
 test_url_run() {
 	local url="$1"
 	local mtu
+	local agent="Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
 
 #	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
@@ -220,7 +221,11 @@ test_url_run() {
 	for mtu in $MTUS; do
 		sleep 0.5
 
-		bytes="$($(nsclient "$mtu") timeout 60 wget -q -6 "$url" --timeout=10 -O - | wc -c)"
+		# Set non-wget user agent to have sites like akamai.com and
+		# fcc.gov to respond to us...
+		# But with a real Firefox agent then Facebook wants us to set
+		# --header="Sec-Fetch-Site: none"...
+		bytes="$($(nsclient "$mtu") timeout 60 wget --header="Sec-Fetch-Site: none" --user-agent="$agent" -q -6 "$url" --timeout=10 -O - | wc -c)"
 		ret="$?"
 #	echo "~~ ret: $ret, bytes: $bytes"
 #
