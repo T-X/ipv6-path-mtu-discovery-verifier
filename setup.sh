@@ -288,19 +288,19 @@ test_url_run() {
 
 	printf "%-40s" "$url:"
 
-	test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+	test_run_print_retried "$url" "$mtu" "1 5 15 60" \
 		'nmap -6 -oG - -PS -p 443 "$(url2domain "$url")" | grep -q "Ports: 443/open/tcp//https///"' \
 		'print_green "✔" "10"' \
 		'print_red "✗" "10"'
 
 	for mtu in $MTUS; do
-		test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+		test_run_print_retried "$url" "$mtu" "1 5 15 60" \
 			'test_url_call "$url" "$mtu" "$i"' \
 			'print_green "✔" "3"' \
 			'print_red "✗" "3"'
 
 		mtu="${mtu}m"
-		test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+		test_run_print_retried "$url" "$mtu" "1 5 15 60" \
 			'test_url_call "$url" "$mtu" "$i"' \
 			'print_green "(✔)" "6"' \
 			'print_red "(✗)" "6"'
