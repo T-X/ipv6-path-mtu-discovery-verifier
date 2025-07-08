@@ -95,6 +95,30 @@ ROUTER_WAN_BRIDGE="br0"
 
 MTUS="1500 1492 1491 1490 1489 1488 1486 1480 1460 1440 1420 1400 1350 1280"
 
+check_commands() {
+	local cmds="ip sed wget ip6tables flock xargs nmap bwrap"
+
+	for cmd in $cmds; do
+		if command -v "$cmd" > /dev/null; then
+			continue
+		else
+			echo "Error: Could not find command \"$cmd\"" >&2
+			return 1
+		fi
+	done
+
+	return 0
+}
+
+check_brif() {
+	if [ -d "/sys/class/net/${ROUTER_WAN_BRIDGE}/bridge/" ]; then
+		return 0
+	else
+		echo "Error: bridge interface \"${ROUTER_WAN_BRIDGE}\" does not exist" >&2
+		return 1
+	fi
+}
+
 dec2hex() {
 	printf "%x\n" "$1"
 }
@@ -350,6 +374,9 @@ test() {
 
 	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=16 bash -c 'test_url "$@"' _ {}
 }
+
+check_commands || exit 1
+check_brif || exit 2
 
 case "$1" in
 setup)
