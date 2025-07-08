@@ -247,6 +247,10 @@ test_url_call() {
 	fi
 }
 
+url2domain() {
+	echo "$@" | sed 's#^https://\([^/]*\).*#\1#'
+}
+
 test_url_run() {
 	local url="$1"
 	local mtu
@@ -260,7 +264,7 @@ test_url_run() {
 	for i in 0.5 5 15; do
 		sleep "$i"
 
-		nmap -6 -oG - -PS -p 443 akamai.com | grep -q "Ports: 443/open/tcp//https///"
+		nmap -6 -oG - -PS -p 443 "$(url2domain "$url")" | grep -q "Ports: 443/open/tcp//https///"
 		ret="$?"
 
 		if [ "$ret" -eq 0 ]; then break; fi
@@ -326,6 +330,7 @@ test() {
 	export -f nsclient
 	export -f print_green
 	export -f print_red
+	export -f url2domain
 	export -f test_url_call
 	export -f test_url_run
 	export -f test_url
