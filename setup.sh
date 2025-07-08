@@ -274,6 +274,30 @@ url2domain() {
 	echo "$@" | sed 's#^https://\([^/]*\).*#\1#'
 }
 
+test_run_print_retried() {
+	local url="$1"
+	local mtu="$2"
+	local ivals="$3"
+	local call_func="$4"
+	local ok_func="$5"
+	local err_func="$6"
+	local i
+	local ret
+
+	for i in $ivals; do
+		eval ${call_func}
+		ret="$?"
+
+		if [ "$ret" -eq 0 ]; then break; fi
+	done
+
+	if [ "$ret" -eq 0 ]; then
+		eval ${ok_func}
+	else
+		eval ${err_func}
+	fi
+}
+
 test_url_run() {
 	local url="$1"
 	local mtu
@@ -284,37 +308,16 @@ test_url_run() {
 #	echo "-- $@ ~~~";
 	printf "%-40s" "$url:"
 
-	for i in 0.5 5 15; do
-		sleep "$i"
-
-		nmap -6 -oG - -PS -p 443 "$(url2domain "$url")" | grep -q "Ports: 443/open/tcp//https///"
-		ret="$?"
-
-		if [ "$ret" -eq 0 ]; then break; fi
-#	if nmap -6 -oG - -PS -p 443 "akamai.com" | grep -q "Ports: 443/open/tcp//https///"; then
-	done
-
-	if [ "$ret" -eq 0 ]; then
-		print_green "✔" "10"
-	else
-		print_red "✗" "10"
-	fi
+	test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+		'nmap -6 -oG - -PS -p 443 "$(url2domain "$url")" | grep -q "Ports: 443/open/tcp//https///"' \
+		'print_green "✔" "10"' \
+		'print_red "✗" "10"'
 
 	for mtu in $MTUS; do
-		for i in 0.5 5 15; do
-			test_url_call "$url" "$mtu" "$i"
-			ret="$?"
-
-			if [ "$ret" -eq 0 ]; then break; fi
-		done
-
-		if [ "$ret" -eq 0 ]; then
-#			printf "\033[32m%-7s\033[0m" "✔"
-			print_green "✔" "7"
-		else
-#			printf "\033[31m%-7s\033[0m" "✗"
-			print_red "✗" "7"
-		fi
+		test_run_print_retried "$url" "$mtu" "0.5 5 15" \
+			'test_url_call "$url" "$mtu" "$i"' \
+			'print_green "✔" "7"' \
+			'print_red "✗" "7"'
 	done
 	echo
 }
@@ -355,6 +358,7 @@ test() {
 	export -f print_red
 	export -f url2domain
 	export -f test_url_call
+	export -f test_run_print_retried
 	export -f test_url_run
 	export -f test_url
 
