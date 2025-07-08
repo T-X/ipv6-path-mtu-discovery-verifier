@@ -97,7 +97,8 @@ NSROUTER="ip netns exec ${NSROUTER_NAME} ${NS_UNSHARE}"
 NSCLIENT="ip netns exec ${NSCLIENT_NAME} ${NS_UNSHARE}"
 
 ROUTER_WAN_BRIDGE="br0"
-MTU_CAP="1480"
+#MTU_CAP="1480"
+MTUS="1500 1492 1480 1350 1280"
 #MTU_CAP="1490"
 #MTU_CAP="1492"
 #MTU_CAP="1500"
@@ -109,64 +110,116 @@ MTU_CAP="1480"
 #END
 #}
 
-setup() {
+dec2hex() {
+	printf "%x\n" "$1"
+}
+
+nsclient() {
+	local mtu="$1"
+
+	echo ip netns exec ${NSCLIENT_NAME}-$mtu ${NS_UNSHARE}
+}
+
+setup_router() {
 	ip netns add "${NSROUTER_NAME}"
-	ip netns add "${NSCLIENT_NAME}"
 
 	ip link add veth-mtu-test type veth peer name veth-router-wan
-	ip link add veth-router-tx type veth peer name veth-client-rx
-	ip link add veth-router-rx type veth peer name veth-client-tx
 
 	ip link set dev veth-mtu-test master "${ROUTER_WAN_BRIDGE}" address 02:00:00:00:00:00 up
 	ip link set dev veth-router-wan netns "${NSROUTER_NAME}" address 02:00:00:00:00:01 up
-	ip link set dev veth-router-rx netns "${NSROUTER_NAME}" address 02:00:00:00:01:01 up
-	ip link set dev veth-client-tx netns "${NSCLIENT_NAME}" address 02:00:00:00:01:02 up
-#	ip link set dev veth-router-tx netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 mtu ${MTU_CAP} up
-#	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}" address 02:00:00:00:02:02 mtu ${MTU_CAP} up
-	ip link set dev veth-router-tx netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 up
-	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}" address 02:00:00:00:02:02 up
-
 
 	$NSROUTER ip6tables -t nat -A POSTROUTING -o veth-router-wan -j MASQUERADE
-	$NSROUTER ip -6 route add fd00::2/128 via fe80::ff:fe00:202 dev veth-router-tx
 	$NSROUTER sh -c "echo 2 > /proc/sys/net/ipv6/conf/veth-router-wan/accept_ra"
 	$NSROUTER sh -c "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
-
-	$NSCLIENT ip -6 link set up dev lo
-	$NSCLIENT ip -6 address add fd00::2/128 dev lo
-	$NSCLIENT ip -6 route add default via fe80::ff:fe00:101 dev veth-client-tx
 }
 
-teardown() {
-	$NSCLIENT ip -6 route del default via fe80::ff:fe00:101 dev veth-client-tx
-	$NSCLIENT ip -6 address del fd00::2/128 dev lo
-	$NSCLIENT ip -6 link set down dev lo
+setup_client() {
+	local mtu="$1"
 
+	ip netns add "${NSCLIENT_NAME}-$mtu"
+
+	ip link add vrtr-tx-$mtu type veth peer name veth-client-rx
+	ip link add vrtr-rx-$mtu type veth peer name veth-client-tx
+
+	ip link set dev vrtr-rx-$mtu netns "${NSROUTER_NAME}" address 02:00:00:00:01:01 up
+	ip link set dev veth-client-tx netns "${NSCLIENT_NAME}-$mtu" address 02:00:00:00:01:02 up
+	ip link set dev vrtr-tx-$mtu netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 mtu $mtu up
+	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}-$mtu" address 02:00:00:00:02:02 mtu $mtu up
+#	ip link set dev vrtr-tx netns "${NSROUTER_NAME}" address 02:00:00:00:02:01 up
+#	ip link set dev veth-client-rx netns "${NSCLIENT_NAME}" address 02:00:00:00:02:02 up
+
+	$NSROUTER ip -6 route add fd00::$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev vrtr-tx-$mtu
+
+	$(nsclient "$mtu") ip -6 link set up dev lo
+	$(nsclient "$mtu") ip -6 address add fd00::$(dec2hex "$mtu"):2/128 dev lo
+	$(nsclient "$mtu") ip -6 route add default via fe80::ff:fe00:101 dev veth-client-tx
+}
+
+setup() {
+	local mtu
+
+	setup_router
+
+	for mtu in $MTUS; do
+		setup_client $mtu
+	done
+}
+
+teardown_client() {
+	local mtu="$1"
+
+	$(nsclient "$mtu") ip -6 route del default via fe80::ff:fe00:101 dev veth-client-tx
+	$(nsclient "$mtu") ip -6 address del fd00::$(dec2hex "$mtu"):2/128 dev lo
+	$(nsclient "$mtu") ip -6 link set down dev lo
+
+	$NSROUTER ip -6 route del fd00::$(dec2hex "$mtu"):2/128 via fe80::ff:fe00:202 dev vrtr-tx-$mtu
+
+	$(nsclient "$mtu") ip link del veth-client-tx
+	$(nsclient "$mtu") ip link del veth-client-rx
+
+	ip netns del "${NSCLIENT_NAME}-$mtu"
+}
+
+teardown_router() {
 	$NSROUTER echo 0 > /proc/sys/net/ipv6/conf/all/forwarding
-	$NSROUTER ip -6 route del fd00::2/128 via fe80::ff:fe00:202 dev veth-router-tx
 	$NSROUTER ip6tables -t nat -D POSTROUTING -o veth-router-wan -j MASQUERADE
 
-	$NSCLIENT ip link del veth-client-tx
-	$NSCLIENT ip link del veth-client-rx
 	$NSROUTER ip link del veth-router-wan
 
-	ip netns del "${NSCLIENT_NAME}"
 	ip netns del "${NSROUTER_NAME}"
 }
 
+teardown() {
+	local mtu
+
+	for mtu in $MTUS; do
+		teardown_client $mtu
+	done
+
+	teardown_router
+}
+
 test() {
+	local mtu
+
 	echo "### IPv6 MTU Path Discovery Tester ###"
 	echo
 
-	printf "%-40s%-5s%-5s%-5s%-5s%-5s%-5s\n" "URL" "1500" "1492" "1480" "1350" "1280"
+#	printf "%-40s%-5s%-5s%-5s%-5s%-5s%-5s\n" "URL" "1500" "1492" "1480" "1350" "1280"
+	printf "%-40s" "URL"
+	for mtu in $MTUS; do
+		printf "%-5s" "$mtu"
+	done
+	echo
+
 	for url in $URLS; do
 #		echo "-- $url";
 		printf "%-40s" "$url:"
 
-		for mtu in 1500 1492 1480 1350 1280; do
-			$NSROUTER ip link set dev veth-router-tx mtu $mtu
+		for mtu in $MTUS; do
+			sleep 0.5
 
-			bytes="$($NSCLIENT wget -q -6 "$url" --timeout=10 -O - | wc -c)"
+			bytes="$($(nsclient "$mtu") wget -q -6 "$url" --timeout=10 -O - | wc -c)"
 			ret="$?"
 #		echo "~~ ret: $ret, bytes: $bytes"
 #
