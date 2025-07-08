@@ -219,7 +219,7 @@ test_url() {
 	for mtu in $MTUS; do
 		sleep 0.5
 
-		bytes="$($(nsclient "$mtu") wget -q -6 "$url" --timeout=10 -O - | wc -c)"
+		bytes="$($(nsclient "$mtu") timeout 60 wget -q -6 "$url" --timeout=10 -O - | wc -c)"
 		ret="$?"
 #	echo "~~ ret: $ret, bytes: $bytes"
 #
