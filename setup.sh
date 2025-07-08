@@ -348,7 +348,7 @@ test() {
 	export -f test_url_run
 	export -f test_url
 
-	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=8 bash -c 'test_url "$@"' _ {}
+	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=16 bash -c 'test_url "$@"' _ {}
 }
 
 case "$1" in
