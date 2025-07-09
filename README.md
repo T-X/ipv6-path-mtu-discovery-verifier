@@ -53,6 +53,7 @@ $ ./ipv6-pmtu-disco-verifier.sh
 Usage: ./ipv6-pmtu-disco-verifier.sh
         [-b <br-iface>]            bridge interface with uplink+radvd (def.: br0)
         [-u <URLS-FILE|->]         file with URLs to check (def.: misc. ~60 URLs)
+        [-m "<MTU> <MTU> ..."]     MTUs to test, between 1280 and 1500 (def.: misc. 14)
         [-j <num-parallel>]        number of parallel jobs (def.: 8)
         [-w "<sec> <sec> ..."]     wait seconds before retry (def.: "1 5 15 60")
         [-r <RESOLV-CONF-FILE>]    resolv.conf with IPv6 nameserver (def.: ffmuc.net nameserver)

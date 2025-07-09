@@ -131,6 +131,7 @@ usage() {
 	echo -e "Usage: $0"
 	echo -e "\t[-b <br-iface>]            bridge interface with uplink+radvd (def.: br0)"
 	echo -e "\t[-u <URLS-FILE|->]         file with URLs to check (def.: misc. ~60 URLs)"
+	echo -e "\t[-m \"<MTU> <MTU> ...\"]     MTUs to test, between 1280 and 1500 (def.: misc. 14)"
 	echo -e "\t[-j <num-parallel>]        number of parallel jobs (def.: ${MAX_PROCS})"
 	echo -e "\t[-w \"<sec> <sec> ...\"]     wait seconds before retry (def.: \"${WAIT_RETRIES}\")"
 	echo -e "\t[-r <RESOLV-CONF-FILE>]    resolv.conf with IPv6 nameserver (def.: ffmuc.net nameserver)"
@@ -139,7 +140,7 @@ usage() {
 	echo -e "\t[-h]                       this help + usage page"
 }
 
-while getopts "b:c:j:u:r:H:h" o; do
+while getopts "b:c:j:u:m:r:H:h" o; do
   case "${o}" in
     b)
 	ROUTER_WAN_BRIDGE="${OPTARG}"
@@ -188,6 +189,19 @@ while getopts "b:c:j:u:r:H:h" o; do
 		URLS="$(cat "${OPTARG}")"
 	fi
 	;;
+    m)
+	if ! echo "${OPTARG}" | grep -q "^[0-9 ]*$"; then
+		echo "Error: Invalid format for MTUs in \"${OPTARG}\"" >&2
+		exit 1
+	fi
+	for mtu in ${OPTARG}; do
+		if [ "$mtu" -lt 1280 -o "$mtu" -gt 1500 ]; then
+			echo "Error: MTUs in \"${OPTARG}\" out-of-range, must be bet. 1280 and 1500" >&2
+			exit 1
+		fi
+	done
+	MTUS="${OPTARG}"
+	;;
     H)
 	if [ ! -f "${OPTARG}" ]; then
 		echo "Error: hosts file \"${OPTARG}\" does not exist" >&2
@@ -209,7 +223,7 @@ done
 shift $((OPTIND-1))
 
 check_commands() {
-	local cmds="ip sed stdbuf wget ip6tables flock xargs nmap bwrap"
+	local cmds="ip sed grep stdbuf wget ip6tables flock xargs nmap bwrap"
 
 	for cmd in $cmds; do
 		if command -v "$cmd" > /dev/null; then
