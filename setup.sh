@@ -74,9 +74,6 @@ mkdir -p "$NSETCDIR/ssl/certs"
 [ -f "/etc/ssl/openssl.cnf" ] && cp /etc/ssl/openssl.cnf "$NSETCDIR/ssl/openssl.cnf"
 
 echo "nameserver 2001:678:e68:f000::" > "$NSETCDIR/resolv.conf"
-cat <<EOF > "$NSETCDIR/hosts"
-2620:1ec:29:1::45 code.visualstudio.com
-EOF
 
 cat <<EOF > "$NSETCDIR/passwd"
 root:x:0:0:root:/root:/bin/bash
