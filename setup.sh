@@ -63,22 +63,12 @@ https://fcc.gov/
 https://europa.eu/"
 
 NS_NAME="ipv6-mtu-testnet"
+NSETCDIR="/tmp/$NS_NAME"
+NSETCHOSTS="/etc/hosts"
+NSETCRESOLVCONF="nameserver 2001:678:e68:f000::"
 
 NSROUTER_NAME="${NS_NAME}-router"
 NSCLIENT_NAME="${NS_NAME}-client"
-
-NSETCDIR="/tmp/$NS_NAME"
-mkdir -p "$NSETCDIR/alternatives"
-mkdir -p "$NSETCDIR/ssl/certs"
-[ -f "/etc/nsswitch.conf" ] && cp /etc/nsswitch.conf "$NSETCDIR/nsswitch.conf"
-[ -f "/etc/ssl/openssl.cnf" ] && cp /etc/ssl/openssl.cnf "$NSETCDIR/ssl/openssl.cnf"
-
-echo "nameserver 2001:678:e68:f000::" > "$NSETCDIR/resolv.conf"
-
-cat <<EOF > "$NSETCDIR/passwd"
-root:x:0:0:root:/root:/bin/bash
-tcpdump:x:117:127::/nonexistent:/usr/sbin/nologin
-EOF
 
 NS_UNSHARE="bwrap --dev-bind / / --ro-bind $NSETCDIR /etc/ --ro-bind /etc/alternatives /etc/alternatives --ro-bind /etc/ssl/certs/ /etc/ssl/certs/"
 
@@ -188,6 +178,33 @@ check_root() {
 	fi
 }
 
+setup_etcdir() {
+	if ! mkdir -p "$NSETCDIR"; then
+		echo "Error: Could not create namespace etc directory \"$NSETCDIR\"" >&2
+		exit 1
+	fi
+
+	if ! cp "$NSETCHOSTS" "$NSETCDIR/hosts"; then
+		echo "Error: Could not copy hosts file \"$NSETCHOSTS\" to \"$NSETCDIR/hosts\"" >&2
+		exit 1
+	fi
+
+	if ! echo "$NSETCRESOLVCONF" > "$NSETCDIR/resolv.conf"; then
+		echo "Error: Could not create resolv.conf file at \"$NSETCDIR/resolv.conf\"" >&2
+		exit 1
+	fi
+
+	mkdir -p "$NSETCDIR/alternatives"
+	mkdir -p "$NSETCDIR/ssl/certs"
+	[ -f "/etc/nsswitch.conf" ] && cp /etc/nsswitch.conf "$NSETCDIR/nsswitch.conf"
+	[ -f "/etc/ssl/openssl.cnf" ] && cp /etc/ssl/openssl.cnf "$NSETCDIR/ssl/openssl.cnf"
+
+	cat <<EOF > "$NSETCDIR/passwd"
+root:x:0:0:root:/root:/bin/bash
+tcpdump:x:117:127::/nonexistent:/usr/sbin/nologin
+EOF
+}
+
 dec2hex() {
 	printf "%x\n" "$1"
 }
@@ -263,6 +280,8 @@ setup() {
 
 	echo "# Starting setup..."
 
+	setup_etcdir
+
 	for mtu in $MTUS; do
 		setup_router "$mtu"
 		setup_router "$mtu" "m"
@@ -303,6 +322,10 @@ teardown_router() {
 	ip netns del "${NSROUTER_NAME}-${mtu}${mssfixed}"
 }
 
+teardown_etcdir() {
+	rm -r "$NSETCDIR"
+}
+
 teardown() {
 	local netns
 	local host
@@ -319,6 +342,8 @@ teardown() {
 
 		teardown_${host} "${mtu}" "$mssfixed" 2> /dev/null
 	done
+
+	teardown_etcdir 2> /dev/null
 }
 
 print_default() {
