@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2025 Linus Lüssing <linus.luessing@c0d3.blue>
+# SPDX-License-Identifier: CC0-1.0
 
 URLS="https://www.heise.de/
 https://netzpolitik.org/
