@@ -113,6 +113,15 @@ check_brif() {
 	fi
 }
 
+check_root() {
+	if [ "$(id -u)" -eq 0 ]; then
+		return 0
+	else
+		echo "Error: not running as root user\n" >&2
+		return 1
+	fi
+}
+
 dec2hex() {
 	printf "%x\n" "$1"
 }
@@ -371,6 +380,7 @@ test() {
 
 check_commands || exit 1
 check_brif || exit 2
+check_root || exit 3
 
 case "$1" in
 setup)
