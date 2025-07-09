@@ -236,15 +236,21 @@ teardown_router() {
 }
 
 teardown() {
+	local netns
+	local host
 	local mtu
+	local mssfixed
 
-	for mtu in $MTUS; do
-		teardown_client "$mtu" "m"
-		teardown_client "$mtu"
-		teardown_router "$mtu" "m"
-		teardown_router "$mtu"
+	echo "# Starting teardown..."
+
+	sudo ip netns list | sed -n "s/^ipv6-mtu-testnet-\([a-z]*\)-\([0-9]*\)\([m]*\) .*/\1 \2 \3/p" | \
+	while read netns; do
+		host="${netns%% *}"; netns="${netns#$host }"
+		mtu="${netns%% *}";  netns="${netns#$mtu}"
+		mssfixed="${netns# }"
+
+		teardown_${host} "${mtu}" "$mssfixed" 2> /dev/null
 	done
-
 }
 
 print_default() {
