@@ -348,7 +348,7 @@ test_url() {
 	stdbuf -oL echo "$output"
 }
 
-test() {
+run() {
 	local mtu
 	local url
 
@@ -389,8 +389,8 @@ setup)
 teardown)
   teardown
   ;;
-test)
-  test
+run)
+  run
   ;;
 *)
   echo "Unknown command"
