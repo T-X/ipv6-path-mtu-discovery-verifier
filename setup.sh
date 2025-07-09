@@ -520,7 +520,12 @@ fi
 
 case "$CMD" in
 setup)
+  trap 'teardown' EXIT
+  trap 'exit 0' SIGINT
+
   setup
+
+  trap -
   ;;
 teardown)
   teardown
