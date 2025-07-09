@@ -88,6 +88,72 @@ NSCLIENT="ip netns exec ${NSCLIENT_NAME} ${NS_UNSHARE}"
 ROUTER_WAN_BRIDGE="br0"
 
 MTUS="1500 1492 1491 1490 1489 1488 1486 1480 1460 1440 1420 1400 1350 1280"
+MAX_PROCS="8"
+WAIT_RETRIES="1 5 15 60"
+
+echo "### IPv6 Path MTU Discovery Verifier ###"
+echo
+
+usage() {
+	echo -e "Usage: $0"
+	echo -e "\t[-b <br-iface>]            bridge interface with uplink+radvd (def.: br0)"
+	echo -e "\t[-u <URLS-FILE|->]         file with URLs to check (def.: misc. ~60 URLs)"
+	echo -e "\t[-j <num-parallel>]        number of parallel jobs (def.: ${MAX_PROCS})"
+	echo -e "\t[-w \"<sec> <sec> ...\"]     wait seconds before retry (def.: \"${WAIT_RETRIES}\")"
+	echo -e "\t[-c setup|run|teardown]    (def.: setup+run+teardown)"
+	echo -e "\t[-h]                       this help + usage page"
+}
+
+while getopts "b:c:j:u:h" o; do
+  case "${o}" in
+    b)
+	ROUTER_WAN_BRIDGE="${OPTARG}"
+	;;
+    c)
+	CMD="${OPTARG}"
+	case "${CMD}" in
+	  setup|run|teardown)
+		;;
+	  *)
+		echo "Error: Unknown command \"$CMD\"" >&2
+		exit 1
+		;;
+	esac
+	;;
+    j)
+	MAX_PROCS="${OPTARG}"
+	case "${MAX_PROCS}" in
+	  [1-9]|[1-9][0-9])
+		;;
+	  *)
+		echo "Error: invalid value \"${MAX_PROCS}\" for -j, choose 1-99" >&2
+		exit 1
+		;;
+	esac
+	;;
+    u)
+	if [ "${OPTARG}" = "-" ]; then
+		URLS="$(cat)"
+	else
+		if [ ! -f "${OPTARG}" ]; then
+			echo "Error: URLs file \"${OPTARG}\" does not exist" >&2
+			exit 1
+		fi
+		URLS="$(cat "${OPTARG}")"
+	fi
+	;;
+    h)
+	usage
+	exit 0
+	;;
+    *)
+	echo "Error: Unknown argument \"-${o}\"" >&2
+	usage >&2
+	exit 1
+	;;
+  esac
+done
+shift $((OPTIND-1))
 
 check_commands() {
 	local cmds="ip sed stdbuf wget ip6tables flock xargs nmap bwrap"
@@ -385,14 +451,14 @@ run() {
 	export -f test_url_run
 	export -f test_url
 
-	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=16 bash -c 'test_url "$@"' _ {}
+	echo "$URLS" | xargs -I {} --max-args=1 --max-procs=${MAX_PROCS} bash -c 'test_url "$@"' _ {}
 }
 
 check_commands || exit 1
 check_brif || exit 2
 check_root || exit 3
 
-case "$1" in
+case "$CMD" in
 setup)
   setup
   ;;
