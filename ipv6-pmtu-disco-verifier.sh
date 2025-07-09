@@ -81,10 +81,51 @@ MTUS="1500 1492 1491 1490 1489 1488 1486 1480 1460 1440 1420 1400 1350 1280"
 MAX_PROCS="8"
 WAIT_RETRIES="1 5 15 60"
 
+echo "########################################"
 echo "### IPv6 Path MTU Discovery Verifier ###"
+echo "########################################"
 echo
 
 usage() {
+	echo "# Check if IPv6 websites/hosts correctly honour ICMPv6 Packet Too Big packets"
+	echo "# and if these hosts reduce their packet size accordingly."
+	echo "# "
+	echo "# To test this this simulates a) asymmetric routes where b) only one"
+	echo "# direction has a lower MTU (like a VPN tunnel would have)."
+	echo "# It creates the following, virtual test topology via network namespaces"
+	echo "# for each configured test MTU:"
+	echo "#"
+	echo '#   ~~~~~~~     /----------------------------------------------------------\'
+	echo '# ~ Internet ~  |This    ```````````````````````    `````````````````````` |'
+	echo '#    ~~~~       |host    `ns:vrtr   <veth-tx>----------<veth-rx>  ns:vcli` |'
+	echo '#     ||        |        `         ^           `    `           v        ` |'
+	echo '# { Local  }=======[br0]==<veth-wan>           `    `           <lo>     ` |'
+	echo '#   Router      |        `         ^           `    `           v        ` |'
+	echo '#               |        `          <veth-rx>==========<veth-tx>         ` |'
+	echo '#               |        ```````````````````````    `````````````````````` |'
+	echo '#               \----------------------------------------------------------/'
+	echo "#"
+	echo "# 1) Packets from the virtual client to the internet host"
+	echo "#    (vcli: [lo => veth-tx] =>"
+	echo "#     vrtr: [veth-rx => veth-wan] => br0 =>"
+	echo "#     Local Router => Internet => Website)"
+	echo "#    will do normal, full MTU roaming."
+	echo "# 2) But: Packets from the internet host to the virtual client"
+	echo "#    (Website => Internet => Local Router =>"
+	echo "#     vrtr: [ veth-wan => veth-tx ] ->"
+	echo "#     vcli: [ veth-rx => lo ])"
+	echo "#   will have a **reduced MTU** (note: ->/- vs. =>/=) to e.g. simulate"
+	echo "#   a tunnel, like a VPN or PPPoE."
+	echo
+	echo "# Test output:"
+	echo "# * TCP-S+A column: basic check via nmap, does a TCP-SYN packet get a TCP-SYN-ACK reply?"
+	echo "# * 1280-1500 columns: HTTP GET via wget from vcli, with reduced MTU in RX direction"
+	echo "#   * (✔/✗): same, but with the TCP-MSS mangled to the low MTU via ip6tables on vcli:veth-tx"
+	echo "#     => NOTE: When this check works, but without the TCP-MSS mangling it doesn't then this"
+	echo "#              is a very strong indicator that the ICMPv6 Packet Too Big packets did not"
+	echo "#              make it to the target website!"
+	echo
+
 	echo -e "Usage: $0"
 	echo -e "\t[-b <br-iface>]            bridge interface with uplink+radvd (def.: br0)"
 	echo -e "\t[-u <URLS-FILE|->]         file with URLs to check (def.: misc. ~60 URLs)"
