@@ -90,11 +90,13 @@ usage() {
 	echo -e "\t[-u <URLS-FILE|->]         file with URLs to check (def.: misc. ~60 URLs)"
 	echo -e "\t[-j <num-parallel>]        number of parallel jobs (def.: ${MAX_PROCS})"
 	echo -e "\t[-w \"<sec> <sec> ...\"]     wait seconds before retry (def.: \"${WAIT_RETRIES}\")"
+	echo -e "\t[-r <RESOLV-CONF-FILE>]    resolv.conf with IPv6 nameserver (def.: ffmuc.net nameserver)"
+	echo -e "\t[-H <HOSTS-FILE>]          an \"/etc/\"hosts file (def.: from setup host)"
 	echo -e "\t[-c setup|run|teardown]    (def.: setup+run+teardown)"
 	echo -e "\t[-h]                       this help + usage page"
 }
 
-while getopts "b:c:j:u:h" o; do
+while getopts "b:c:j:u:r:H:h" o; do
   case "${o}" in
     b)
 	ROUTER_WAN_BRIDGE="${OPTARG}"
@@ -121,6 +123,17 @@ while getopts "b:c:j:u:h" o; do
 		;;
 	esac
 	;;
+    r)
+	if [ ! -f "${OPTARG}" ]; then
+		echo "Error: resolv.conf file \"${OPTARG}\" does not exist" >&2
+		exit 1
+	fi
+	NSETCRESOLVCONF="$(cat "${OPTARG}")"
+	if [ "$?" -ne 0 -o -z "$NSETCRESOLVCONF" ]; then
+		echo "Error: resolv.conf file \"${OPTARG}\" could not be read or is empty" >&2
+		exit 1
+	fi
+	;;
     u)
 	if [ "${OPTARG}" = "-" ]; then
 		URLS="$(cat)"
@@ -131,6 +144,13 @@ while getopts "b:c:j:u:h" o; do
 		fi
 		URLS="$(cat "${OPTARG}")"
 	fi
+	;;
+    H)
+	if [ ! -f "${OPTARG}" ]; then
+		echo "Error: hosts file \"${OPTARG}\" does not exist" >&2
+		exit 1
+	fi
+	NSETCHOSTS="${OPTARG}"
 	;;
     h)
 	usage
