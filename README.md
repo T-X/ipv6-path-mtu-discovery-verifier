@@ -60,3 +60,9 @@ Usage: ./ipv6-pmtu-disco-verifier.sh
         [-c setup|run|teardown]    (def.: setup+run+teardown)
         [-h]                       this help + usage page
 ```
+
+## Screenshots
+
+![Startup and first lines of running "sudo ./ipv6-pmtu-disco-verifier.sh -j16", shows a few settings, like 16 parallel jobs. The left most column is showing the URL, followed by green checkmarks underneath columns for various MTU sizes.](screenshots/screenshot-ipv6-pmtu-disco-verifier-01.png)
+![The next output page, still showing just green checkmarks.](screenshots/screenshot-ipv6-pmtu-disco-verifier-02.png)
+![The final output page, this time some red crosses are shown for apnic.net, xbox.com, microsoft.com, code.visualstudio.com, apps.microsoft.com, js.monitor.azure.com, launcher.mojang.com to the MincraftInstaller.exe download link, t.me and linked.in](screenshots/screenshot-ipv6-pmtu-disco-verifier-03.png)
