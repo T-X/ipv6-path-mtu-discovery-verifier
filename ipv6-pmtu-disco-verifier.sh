@@ -354,7 +354,7 @@ teardown() {
 
 	echo "# Starting teardown..."
 
-	sudo ip netns list | sed -n "s/^ipv6-mtu-testnet-\([a-z]*\)-\([0-9]*\)\([m]*\) .*/\1 \2 \3/p" | \
+	sudo ip netns list | sed -n "s/^${NS_NAME}-\([a-z]*\)-\([0-9]*\)\([m]*\) .*/\1 \2 \3/p" | \
 	while read netns; do
 		host="${netns%% *}"; netns="${netns#$host }"
 		mtu="${netns%% *}";  netns="${netns#$mtu}"
