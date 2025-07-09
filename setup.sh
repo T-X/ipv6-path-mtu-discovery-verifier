@@ -147,6 +147,8 @@ setup_router() {
 	local mssfixed="$2"
 	local ehb="00"
 
+	teardown_router "$mtu" "$mssfixed" 2> /dev/null
+
 	[ -n "$mssfixed" ] && ehb="01"
 
 	ip netns add "${NSROUTER_NAME}-${mtu}${mssfixed}"
@@ -165,6 +167,8 @@ setup_client() {
 	local mtu="$1"
 	local mssfixed="$2"
 	local ihb=""
+
+	teardown_client "$mtu" "$mssfixed" 2> /dev/null
 
 	[ -n "$mssfixed" ] && ihb="1:"
 
