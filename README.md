@@ -2,7 +2,12 @@
 
 IPv6 Path MTU Discovery Verifier - Check if IPv6 websites correctly honour ICMPv6 Packet Too Big packets
 
+## Usage
+
+Help page:
+
 ```
+$ ./ipv6-pmtu-disco-verifier.sh
 ########################################
 ### IPv6 Path MTU Discovery Verifier ###
 ########################################
