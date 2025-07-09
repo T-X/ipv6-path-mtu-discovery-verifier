@@ -90,7 +90,7 @@ ROUTER_WAN_BRIDGE="br0"
 MTUS="1500 1492 1491 1490 1489 1488 1486 1480 1460 1440 1420 1400 1350 1280"
 
 check_commands() {
-	local cmds="ip sed wget ip6tables flock xargs nmap bwrap"
+	local cmds="ip sed stdbuf wget ip6tables flock xargs nmap bwrap"
 
 	for cmd in $cmds; do
 		if command -v "$cmd" > /dev/null; then
