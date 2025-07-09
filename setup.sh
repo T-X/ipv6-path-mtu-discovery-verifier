@@ -261,6 +261,8 @@ setup_client() {
 setup() {
 	local mtu
 
+	echo "# Starting setup..."
+
 	for mtu in $MTUS; do
 		setup_router "$mtu"
 		setup_router "$mtu" "m"
@@ -428,7 +430,10 @@ run() {
 	local mtu
 	local url
 
-	echo "### IPv6 MTU Path Discovery Tester ###"
+	echo "# Starting run..."
+	echo "# Settings:"
+	echo "# * parallel: ${MAX_PROCS}"
+	echo "# * wait seconds on (re)try: ${WAIT_RETRIES}"
 	echo
 
 	print_default "URL" "40"
