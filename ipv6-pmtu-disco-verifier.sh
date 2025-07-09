@@ -582,7 +582,8 @@ setup)
 
   setup
 
-  trap -
+  trap - SIGINT
+  trap - EXIT
   ;;
 teardown)
   teardown
