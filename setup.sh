@@ -463,6 +463,16 @@ check_commands || exit 1
 check_brif || exit 2
 check_root || exit 3
 
+if [ -z "$CMD" ]; then
+	trap 'teardown' EXIT
+	trap 'exit 0' SIGINT
+
+	setup
+	run
+
+	exit 0
+fi
+
 case "$CMD" in
 setup)
   setup
